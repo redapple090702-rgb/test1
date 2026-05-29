@@ -3,33 +3,37 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>스마트 의약품 AR 도우미 (Gemini AI 탑재)</title>
+    <title>스마트 의약품 AR 도우미</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
         body, html { width: 100%; height: 100%; font-family: -apple-system, sans-serif; background-color: #121212; color: #fff; overflow: hidden; }
         .app-container { position: relative; width: 100%; height: calc(100% - 70px); }
         
-        .view { position: absolute; top: 0; left: 0; width: 100%; height: 100%; display: none; flex-direction: column; align-items: center; overflow-y: auto; padding-bottom: 20px; }
+        .view { display: none; width: 100%; height: 100%; flex-direction: column; overflow-y: auto; padding-bottom: 20px; }
         .view.active { display: flex; }
 
-        /* API 키 입력 설정 바 */
-        .api-key-bar { width: 100%; background: #222; padding: 10px; display: flex; justify-content: center; gap: 10px; z-index: 200; border-bottom: 1px solid #333; position: absolute; top:0; }
-        .api-key-bar input { padding: 5px 10px; width: 250px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; }
-        .api-key-bar button { padding: 5px 15px; background: #4CAF50; border: none; color: white; border-radius: 4px; cursor: pointer; }
+        /* API 키 입력 바 */
+        .api-key-bar { position: absolute; top: 0; left: 0; width: 100%; background: #222; padding: 10px; display: flex; justify-content: center; gap: 10px; z-index: 200; border-bottom: 1px solid #333; }
+        .api-key-bar input { padding: 5px 10px; width: 60%; max-width: 250px; background: #333; border: 1px solid #555; color: white; border-radius: 4px; font-size: 0.9rem; }
+        .api-key-bar button { padding: 5px 15px; background: #4CAF50; border: none; color: white; border-radius: 4px; cursor: pointer; white-space: nowrap; }
 
-        /* 카메라 뷰 (가림막 문제 해결 완료) */
-        #view-camera { padding-top: 50px; }
-        #video-element { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
-        .top-info-panel { width: 90%; max-width: 1000px; margin-top: 20px; display: flex; flex-direction: column; gap: 15px; z-index: 2; }
-        .info-box { background: rgba(0, 0, 0, 0.8); padding: 20px; border-radius: 16px; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+        /* 📸 분할된 카메라 뷰 (스마트폰 호환성 극대화) */
+        #view-camera { padding-top: 45px; flex-direction: column; overflow: hidden; }
+        
+        .camera-wrapper { position: relative; width: 100%; height: 45%; background: #000; flex-shrink: 0; }
+        #video-element { width: 100%; height: 100%; object-fit: cover; }
+        
+        .ai-capture-btn { position: absolute; bottom: 15px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 30px; font-weight: bold; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); white-space: nowrap; }
+        .ai-capture-btn:disabled { background: #555; cursor: not-allowed; }
+
+        .top-info-panel { width: 100%; height: 55%; padding: 15px; display: flex; flex-direction: column; gap: 15px; overflow-y: auto; background: #121212; }
+        .info-box { background: #222; padding: 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05); }
         .info-box h3 { font-size: 1.1rem; color: #4CAF50; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
         
         .warning-text { color: #ff5252; font-weight: bold; background: rgba(255, 82, 82, 0.15); padding: 4px 8px; border-radius: 6px; display: inline-block; margin-top: 5px; border: 1px solid rgba(255, 82, 82, 0.3); }
 
-        .ai-capture-btn { z-index: 10; margin-top: 15px; padding: 12px 24px; background: #4CAF50; color: white; border: none; border-radius: 30px; font-weight: bold; font-size: 1rem; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
-        .ai-capture-btn:disabled { background: #555; cursor: not-allowed; }
-
-        #view-search { background-color: #181818; padding-top: 50px; }
+        /* 검색 뷰 */
+        #view-search { align-items: center; padding-top: 60px; }
         .search-container { width: 90%; max-width: 800px; margin-top: 20px; }
         .search-input { width: 100%; padding: 18px 24px; border-radius: 30px; border: 2px solid #333; font-size: 1rem; background: #252525; color: white; outline: none; }
         .search-input:focus { border-color: #4CAF50; }
@@ -46,60 +50,66 @@
         .btn-star { background: none; border: none; font-size: 1.8rem; color: #555; cursor: pointer; }
         .btn-star.saved { color: #ffd700; }
 
-        #view-favorites { background-color: #181818; padding-top: 50px; }
-        .fav-header { width: 90%; max-width: 800px; margin-top: 30px; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        /* 즐겨찾기 뷰 */
+        #view-favorites { align-items: center; padding-top: 60px; }
+        .fav-header { width: 90%; max-width: 800px; margin-top: 10px; margin-bottom: 20px; border-bottom: 2px solid #333; padding-bottom: 10px; }
         .fav-list { width: 90%; max-width: 800px; display: flex; flex-direction: column; gap: 15px; }
         .fav-item { background: #2a2a2a; padding: 20px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center; border-left: 5px solid #4CAF50; }
         .fav-item .btn-remove { background: #ff5252; color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; }
 
+        /* 하단 네비게이션 바 */
         .bottom-nav { position: fixed; bottom: 0; left: 0; width: 100%; height: 70px; background: #1a1a1a; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 -2px 10px rgba(0,0,0,0.5); z-index: 100; border-top: 1px solid #333; }
         .nav-item { flex: 1; height: 100%; display: flex; flex-direction: column; justify-content: center; align-items: center; color: #888; text-decoration: none; cursor: pointer; }
         .nav-item span { font-size: 0.8rem; margin-top: 5px; font-weight: bold; }
         .nav-item svg { width: 24px; height: 24px; fill: currentColor; }
         .nav-item.active { color: #4CAF50; }
 
-        .loading { display: none; color: #4CAF50; font-weight: bold; margin-top: 10px; }
+        .loading { display: none; color: #4CAF50; font-weight: bold; margin-top: 10px; text-align: center; }
 
+        /* 💻 태블릿 및 PC 화면 반응형 처리 (화면을 좌우로 분할) */
         @media (min-width: 768px) {
-            .top-info-panel { flex-direction: row; }
-            .info-box { flex: 1; }
+            #view-camera { flex-direction: row; align-items: stretch; }
+            .camera-wrapper { width: 50%; height: calc(100vh - 115px); }
+            .top-info-panel { width: 50%; height: calc(100vh - 115px); padding: 25px; }
         }
     </style>
 </head>
 <body>
 
 <div class="api-key-bar">
-    <input type="password" id="api-key-input" placeholder="Google AI Studio API Key 입력">
+    <input type="password" id="api-key-input" placeholder="Google AI Key (AIza...)">
     <button onclick="saveApiKey()">키 저장</button>
 </div>
 
 <div class="app-container">
     
     <div id="view-camera" class="view active">
-        <video id="video-element" autoplay playsinline muted></video>
-        <button id="capture-btn" class="ai-capture-btn" onclick="analyzeImageWithAI()">📷 약품 인식하기 (AI 분석)</button>
-        <div id="camera-loading" class="loading">Gemini AI가 약품 사진을 분석하는 중... 🧠</div>
+        <div class="camera-wrapper">
+            <video id="video-element" autoplay playsinline muted></video>
+            <button id="capture-btn" class="ai-capture-btn" onclick="analyzeImageWithAI()">📷 약품 인식하기 (AI 분석)</button>
+        </div>
         
         <div class="top-info-panel">
+            <div id="camera-loading" class="loading">Gemini AI가 약품을 분석하는 중... 🧠</div>
             <div class="info-box">
                 <h3>💊 인식 결과</h3>
-                <p id="cam-res-name">AI 인식 대기 중...</p>
+                <p id="cam-res-name" style="color:#aaa;">카메라를 약품에 맞추고 위의 버튼을 누르세요.</p>
             </div>
             <div class="info-box">
                 <h3>
                     📖 의료 매뉴얼
                     <button class="btn-star" id="cam-star" onclick="toggleFavoriteFromCurrent('cam')">☆</button>
                 </h3>
-                <div id="cam-res-manual">카메라를 약품에 맞추고 위의 버튼을 누르세요.</div>
+                <div id="cam-res-manual" style="color:#aaa;">대기 중...</div>
             </div>
         </div>
     </div>
 
     <div id="view-search" class="view">
         <div class="search-container">
-            <input type="text" id="search-input" class="search-input" placeholder="약품명, 성분명, 증상 입력 후 엔터 (예: 타이레놀)" onkeypress="handleSearch(event)">
+            <input type="text" id="search-input" class="search-input" placeholder="약품명, 성분명 등 입력 후 엔터" onkeypress="handleSearch(event)">
         </div>
-        <div id="search-loading" class="loading">Gemini AI가 의약품 정보를 조회하는 중... 🔍</div>
+        <div id="search-loading" class="loading">Gemini AI가 정보를 조회하는 중... 🔍</div>
 
         <div class="content-card" id="search-result" style="display:none;">
             <h2>
@@ -150,8 +160,9 @@
     function saveApiKey() {
         const key = document.getElementById('api-key-input').value.trim();
         localStorage.setItem('gemini_api_key', key);
-        alert('API Key가 안전하게 저장되었습니다.');
+        alert('API Key가 브라우저에 안전하게 저장되었습니다.');
     }
+    
     function getApiKey() {
         return localStorage.getItem('gemini_api_key');
     }
@@ -164,7 +175,6 @@
         if(viewName === 'favorites') renderFavorites();
     }
 
-    // 카메라 작동 로직 강화 (스마트폰/PC 모두 호환)
     const videoElement = document.getElementById('video-element');
     async function startCamera() {
         try {
@@ -175,7 +185,7 @@
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true });
                 videoElement.srcObject = stream;
             } catch (err2) {
-                alert("카메라 장치를 켤 수 없습니다. 브라우저 설정에서 카메라 권한을 확인해주세요.");
+                alert("카메라 권한이 차단되었거나 장치를 찾을 수 없습니다.");
             }
         }
     }
@@ -191,9 +201,12 @@
       "contraindications": ["함께 복용 시 부작용을 일으키거나 금기되는 약품 혹은 성분 리스트 1", "리스트 2"]
     }`;
 
+    // 해결 1: 최신 모델 이름 적용 (gemini-1.5-flash-latest)
+    const MODEL_NAME = "gemini-1.5-flash-latest";
+
     async function analyzeImageWithAI() {
         const apiKey = getApiKey();
-        if(!apiKey) return alert('상단에 Google AI Studio API Key를 먼저 입력하고 저장해주세요.');
+        if(!apiKey) return alert('상단에 Google AI API Key를 저장해주세요.');
 
         document.getElementById('camera-loading').style.display = 'block';
         document.getElementById('capture-btn').disabled = true;
@@ -213,7 +226,7 @@
         }
         
         const base64Image = canvas.toDataURL('image/jpeg').split(',')[1];
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
         const payload = {
             contents: [{
                 parts: [
@@ -227,7 +240,6 @@
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const result = await response.json();
             
-            // AI 에러 발생 시 팝업으로 원인 알림
             if (result.error) {
                 alert(`구글 AI 통신 에러: ${result.error.message}`);
                 return;
@@ -248,7 +260,7 @@
     async function handleSearch(event) {
         if (event.key !== 'Enter') return;
         const apiKey = getApiKey();
-        if(!apiKey) return alert('상단에 Google AI Studio API Key를 먼저 입력하고 저장해주세요.');
+        if(!apiKey) return alert('상단에 Google AI API Key를 저장해주세요.');
 
         const query = document.getElementById('search-input').value;
         if(!query.trim()) return;
@@ -256,7 +268,7 @@
         document.getElementById('search-loading').style.display = 'block';
         document.getElementById('search-result').style.display = 'none';
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
         const payload = {
             contents: [{
                 parts: [{ text: `'${query}' 에 대한 정보를 찾아줘. ` + systemPrompt }]
@@ -267,9 +279,8 @@
             const response = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
             const result = await response.json();
             
-            // 검색 시 에러 발생 이유 팝업 알림
             if (result.error) {
-                alert(`구글 AI 검색 실패 원인: ${result.error.message}\nAPI 키가 올바른지 확인해주세요.`);
+                alert(`구글 AI 검색 실패 원인: ${result.error.message}`);
                 return;
             }
             
@@ -295,12 +306,12 @@
         }
 
         const htmlContent = `
-            <p><strong>분류:</strong> ${info.category}</p>
-            <p><strong>효능:</strong> ${info.efficacy}</p>
-            <p><strong>용법:</strong> ${info.usage}</p>
+            <p style="color:#fff;"><strong>분류:</strong> ${info.category}</p>
+            <p style="color:#fff;"><strong>효능:</strong> ${info.efficacy}</p>
+            <p style="color:#fff;"><strong>용법:</strong> ${info.usage}</p>
             <div class="warning-text">⚠️ 알레르기 및 주의사항:<br>${info.warning}</div>
             <div class="contra-section">
-                <h4>⛔ 함께 복용 금기 및 주의 의약품 리스트</h4>
+                <h4>⛔ 함께 복용 금기 및 주의 의약품</h4>
                 <ul class="contra-list">${contrasHTML}</ul>
             </div>
         `;
